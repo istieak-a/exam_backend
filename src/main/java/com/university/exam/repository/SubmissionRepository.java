@@ -73,4 +73,15 @@ public class SubmissionRepository {
                 .collect(Collectors.toList());
         fileRepository.writeAll(SUBMISSIONS_FILE, submissions);
     }
+    
+    public boolean hasSubmissions(String examId) {
+        return findAll().stream()
+                .anyMatch(submission -> submission.getExamId().equals(examId));
+    }
+    
+    public int countByExamId(String examId) {
+        return (int) findAll().stream()
+                .filter(submission -> submission.getExamId().equals(examId))
+                .count();
+    }
 }

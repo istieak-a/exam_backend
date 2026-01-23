@@ -4,11 +4,13 @@ import com.university.exam.model.ApiResponse;
 import com.university.exam.model.Exam;
 import com.university.exam.model.ExamSubmission;
 import com.university.exam.service.ExamService;
+import com.university.exam.service.ValidationException;
 import jakarta.servlet.http.HttpSession;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -16,13 +18,28 @@ import java.util.concurrent.CompletableFuture;
 
 @RestController
 @RequestMapping("/api/exams")
-@CrossOrigin(origins = "*")
 public class ExamController {
     
     private final ExamService examService;
     
     public ExamController(ExamService examService) {
         this.examService = examService;
+    }
+    
+    /**
+     * Handle ValidationException with structured error response
+     */
+    @ExceptionHandler(ValidationException.class)
+    public ResponseEntity<ApiResponse<Map<String, String>>> handleValidationException(
+            ValidationException ex) {
+        Map<String, String> response = new HashMap<>();
+        response.put("message", ex.getMessage());
+        response.put("timestamp", String.valueOf(System.currentTimeMillis()));
+        response.putAll(ex.getErrors());
+        
+        return ResponseEntity.badRequest().body(
+            ApiResponse.error(ex.getMessage(), response)
+        );
     }
     
     /**
@@ -45,12 +62,19 @@ public class ExamController {
         }
         
         return examService.createExam(exam, userId)
-                .thenApply(savedExam -> ResponseEntity.ok(
+                .thenApply(savedExam -> ResponseEntity.status(HttpStatus.CREATED).body(
                     ApiResponse.success("Exam created successfully", savedExam)
                 ))
-                .exceptionally(ex -> ResponseEntity.badRequest().body(
-                    ApiResponse.error(ex.getMessage())
-                ));
+                .exceptionally(ex -> {
+                    if (ex.getCause() instanceof ValidationException) {
+                        ValidationException valEx = (ValidationException) ex.getCause();
+                        ApiResponse<Exam> errorResponse = new ApiResponse<>(false, valEx.getMessage(), null);
+                        return ResponseEntity.badRequest().body(errorResponse);
+                    }
+                    return ResponseEntity.badRequest().body(
+                        ApiResponse.error(ex.getMessage())
+                    );
+                });
     }
     
     /**
@@ -77,9 +101,22 @@ public class ExamController {
                 .thenApply(updatedExam -> ResponseEntity.ok(
                     ApiResponse.success("Exam updated successfully", updatedExam)
                 ))
-                .exceptionally(ex -> ResponseEntity.badRequest().body(
-                    ApiResponse.error(ex.getMessage())
-                ));
+                .exceptionally(ex -> {
+                    if (ex.getCause() instanceof ValidationException) {
+                        ValidationException valEx = (ValidationException) ex.getCause();
+                        ApiResponse<Exam> errorResponse = new ApiResponse<>(false, valEx.getMessage(), null);
+                        return ResponseEntity.badRequest().body(errorResponse);
+                    }
+                    String message = ex.getMessage();
+                    if (message != null && message.contains("already submitted")) {
+                        return ResponseEntity.status(HttpStatus.CONFLICT).body(
+                            ApiResponse.error(message)
+                        );
+                    }
+                    return ResponseEntity.badRequest().body(
+                        ApiResponse.error(message)
+                    );
+                });
     }
     
     /**
@@ -105,9 +142,17 @@ public class ExamController {
                 .thenApply(v -> ResponseEntity.ok(
                     ApiResponse.<Object>success("Exam deleted successfully", null)
                 ))
-                .exceptionally(ex -> ResponseEntity.badRequest().body(
-                    ApiResponse.error(ex.getMessage())
-                ));
+                .exceptionally(ex -> {
+                    String message = ex.getMessage();
+                    if (message != null && message.contains("already submitted")) {
+                        return ResponseEntity.status(HttpStatus.CONFLICT).body(
+                            ApiResponse.error(message)
+                        );
+                    }
+                    return ResponseEntity.badRequest().body(
+                        ApiResponse.error(message)
+                    );
+                });
     }
     
     /**

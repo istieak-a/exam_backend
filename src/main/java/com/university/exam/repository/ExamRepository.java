@@ -41,6 +41,33 @@ public class ExamRepository {
                 .collect(Collectors.toList());
     }
     
+    public List<Exam> findByStatus(Exam.ExamStatus status) {
+        return findAll().stream()
+                .filter(exam -> exam.getStatus() == status)
+                .collect(Collectors.toList());
+    }
+    
+    public List<Exam> findByCourse(String course) {
+        return findAll().stream()
+                .filter(exam -> exam.getCourse() != null && exam.getCourse().equalsIgnoreCase(course))
+                .collect(Collectors.toList());
+    }
+    
+    public List<Exam> findByExamType(Exam.ExamType examType) {
+        return findAll().stream()
+                .filter(exam -> exam.getExamType() == examType)
+                .collect(Collectors.toList());
+    }
+    
+    public List<Exam> findActive() {
+        long now = System.currentTimeMillis();
+        return findAll().stream()
+                .filter(exam -> exam.getStartDateTime() != null && exam.getEndDateTime() != null)
+                .filter(exam -> now >= exam.getStartDateTime() && now <= exam.getEndDateTime())
+                .filter(exam -> exam.getStatus() == Exam.ExamStatus.ACTIVE || exam.getStatus() == Exam.ExamStatus.PUBLISHED)
+                .collect(Collectors.toList());
+    }
+    
     public Exam save(Exam exam) {
         List<Exam> exams = findAll();
         
@@ -48,9 +75,11 @@ public class ExamRepository {
             // New exam
             exam.setId(UUID.randomUUID().toString());
             exam.setCreatedAt(System.currentTimeMillis());
+            exam.setUpdatedAt(System.currentTimeMillis());
             exams.add(exam);
         } else {
             // Update existing exam
+            exam.setUpdatedAt(System.currentTimeMillis());
             exams = exams.stream()
                     .map(e -> e.getId().equals(exam.getId()) ? exam : e)
                     .collect(Collectors.toList());

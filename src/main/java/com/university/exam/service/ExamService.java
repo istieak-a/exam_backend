@@ -28,6 +28,137 @@ public class ExamService {
     }
     
     /**
+     * Validate exam fields and business rules
+     */
+    private void validateExam(Exam exam) {
+        Map<String, String> errors = new HashMap<>();
+        
+        // Required fields
+        if (exam.getTitle() == null || exam.getTitle().trim().isEmpty()) {
+            errors.put("title", "Title is required");
+        }
+        if (exam.getCourse() == null || exam.getCourse().trim().isEmpty()) {
+            errors.put("course", "Course is required");
+        }
+        if (exam.getExamType() == null) {
+            errors.put("examType", "Exam type is required (MCQ or CQ)");
+        }
+        if (exam.getStartDateTime() == null) {
+            errors.put("startDateTime", "Start date/time is required");
+        }
+        if (exam.getEndDateTime() == null) {
+            errors.put("endDateTime", "End date/time is required");
+        }
+        if (exam.getQuestions() == null || exam.getQuestions().isEmpty()) {
+            errors.put("questions", "At least one question is required");
+        }
+        
+        // Marks validation
+        if (exam.getTotalMarks() <= 0) {
+            errors.put("totalMarks", "Total marks must be greater than 0");
+        }
+        if (exam.getPassingMarks() <= 0) {
+            errors.put("passingMarks", "Passing marks must be greater than 0");
+        }
+        if (exam.getPassingMarks() > exam.getTotalMarks()) {
+            errors.put("passingMarks", "Passing marks cannot exceed total marks");
+        }
+        
+        // Duration validation
+        if (exam.getDurationMinutes() <= 0) {
+            errors.put("durationMinutes", "Duration must be greater than 0");
+        }
+        
+        // DateTime validation
+        if (exam.getStartDateTime() != null && exam.getEndDateTime() != null) {
+            if (exam.getStartDateTime() >= exam.getEndDateTime()) {
+                errors.put("endDateTime", "End date/time must be after start date/time");
+            }
+        }
+        
+        // Questions validation
+        if (exam.getQuestions() != null && !exam.getQuestions().isEmpty()) {
+            int calculatedTotal = exam.getQuestions().stream()
+                    .mapToInt(Question::getMarks)
+                    .sum();
+            
+            if (calculatedTotal != exam.getTotalMarks()) {
+                errors.put("totalMarks", "Total marks (" + exam.getTotalMarks() + 
+                    ") must equal sum of question marks (" + calculatedTotal + ")");
+            }
+            
+            // Validate individual questions
+            for (int i = 0; i < exam.getQuestions().size(); i++) {
+                Question q = exam.getQuestions().get(i);
+                if (q.getQuestionText() == null || q.getQuestionText().trim().isEmpty()) {
+                    errors.put("questions[" + i + "].text", "Question text is required");
+                }
+                if (q.getMarks() <= 0) {
+                    errors.put("questions[" + i + "].marks", "Question marks must be greater than 0");
+                }
+                
+                // MCQ specific validation
+                if (q.getType() == Question.QuestionType.MCQ) {
+                    if (q.getOptions() == null || q.getOptions().size() < 2) {
+                        errors.put("questions[" + i + "].options", "MCQ must have at least 2 options");
+                    }
+                    if (q.getCorrectAnswer() == null || q.getCorrectAnswer().trim().isEmpty()) {
+                        errors.put("questions[" + i + "].correctAnswer", "MCQ must have a correct answer");
+                    }
+                }
+                
+                // CQ should not have options
+                if (q.getType() == Question.QuestionType.CQ) {
+                    if (q.getOptions() != null && !q.getOptions().isEmpty()) {
+                        errors.put("questions[" + i + "].options", "CQ questions should not have options");
+                    }
+                }
+            }
+        }
+        
+        if (!errors.isEmpty()) {
+            throw new ValidationException("Validation failed", errors);
+        }
+    }
+    
+    /**
+     * Calculate current status based on datetime
+     */
+    private Exam.ExamStatus calculateCurrentStatus(Exam exam) {
+        if (exam.getStartDateTime() == null || exam.getEndDateTime() == null) {
+            return exam.getStatus();
+        }
+        
+        long now = System.currentTimeMillis();
+        
+        if (exam.getStatus() == Exam.ExamStatus.DRAFT) {
+            return Exam.ExamStatus.DRAFT;
+        }
+        
+        if (exam.getStatus() == Exam.ExamStatus.PUBLISHED || exam.getStatus() == Exam.ExamStatus.ACTIVE) {
+            if (now >= exam.getStartDateTime() && now <= exam.getEndDateTime()) {
+                return Exam.ExamStatus.ACTIVE;
+            } else if (now > exam.getEndDateTime()) {
+                return Exam.ExamStatus.COMPLETED;
+            }
+        }
+        
+        return exam.getStatus();
+    }
+    
+    /**
+     * Update exam status if needed
+     */
+    private Exam updateExamStatus(Exam exam) {
+        Exam.ExamStatus newStatus = calculateCurrentStatus(exam);
+        if (newStatus != exam.getStatus()) {
+            exam.setStatus(newStatus);
+            return examRepository.save(exam);
+        }
+        return exam;
+    }
+    
+    /**
      * Create a new exam (Teacher only)
      */
     public CompletableFuture<Exam> createExam(Exam exam, String teacherId) {
@@ -37,14 +168,20 @@ public class ExamService {
                 throw new RuntimeException("Only teachers can create exams");
             }
             
+            // Validate exam
+            validateExam(exam);
+            
             exam.setTeacherId(teacherId);
             exam.setTeacherName(teacher.get().getFullName());
             
-            // Calculate total marks
-            int totalMarks = exam.getQuestions().stream()
-                    .mapToInt(Question::getMarks)
-                    .sum();
-            exam.setTotalMarks(totalMarks);
+            // Set question order if not set
+            if (exam.getQuestions() != null) {
+                for (int i = 0; i < exam.getQuestions().size(); i++) {
+                    if (exam.getQuestions().get(i).getQuestionOrder() == 0) {
+                        exam.getQuestions().get(i).setQuestionOrder(i + 1);
+                    }
+                }
+            }
             
             return examRepository.save(exam);
         });
@@ -65,15 +202,27 @@ public class ExamService {
                 throw new RuntimeException("Unauthorized: You can only update your own exams");
             }
             
+            // Check if exam has submissions
+            if (submissionRepository.hasSubmissions(examId)) {
+                throw new RuntimeException("Cannot update exam: Students have already submitted");
+            }
+            
+            // Validate updated exam
+            validateExam(updatedExam);
+            
             updatedExam.setId(examId);
             updatedExam.setTeacherId(teacherId);
+            updatedExam.setTeacherName(existingExam.get().getTeacherName());
             updatedExam.setCreatedAt(existingExam.get().getCreatedAt());
             
-            // Recalculate total marks
-            int totalMarks = updatedExam.getQuestions().stream()
-                    .mapToInt(Question::getMarks)
-                    .sum();
-            updatedExam.setTotalMarks(totalMarks);
+            // Set question order if not set
+            if (updatedExam.getQuestions() != null) {
+                for (int i = 0; i < updatedExam.getQuestions().size(); i++) {
+                    if (updatedExam.getQuestions().get(i).getQuestionOrder() == 0) {
+                        updatedExam.getQuestions().get(i).setQuestionOrder(i + 1);
+                    }
+                }
+            }
             
             return examRepository.save(updatedExam);
         });
@@ -94,6 +243,11 @@ public class ExamService {
                 throw new RuntimeException("Unauthorized: You can only delete your own exams");
             }
             
+            // Check if exam has submissions
+            if (submissionRepository.hasSubmissions(examId)) {
+                throw new RuntimeException("Cannot delete exam: Students have already submitted");
+            }
+            
             examRepository.delete(examId);
         });
     }
@@ -102,14 +256,22 @@ public class ExamService {
      * Get all published exams (for students)
      */
     public List<Exam> getPublishedExams() {
-        return examRepository.findPublished();
+        List<Exam> exams = examRepository.findPublished();
+        // Update status for each exam
+        return exams.stream()
+                .map(this::updateExamStatus)
+                .toList();
     }
     
     /**
      * Get teacher's exams
      */
     public List<Exam> getTeacherExams(String teacherId) {
-        return examRepository.findByTeacherId(teacherId);
+        List<Exam> exams = examRepository.findByTeacherId(teacherId);
+        // Update status for each exam
+        return exams.stream()
+                .map(this::updateExamStatus)
+                .toList();
     }
     
     /**
@@ -118,8 +280,13 @@ public class ExamService {
     public Optional<Exam> getExamById(String examId, boolean isTeacher) {
         Optional<Exam> examOpt = examRepository.findById(examId);
         
-        if (examOpt.isPresent() && !isTeacher) {
-            Exam exam = examOpt.get();
+        if (examOpt.isEmpty()) {
+            return examOpt;
+        }
+        
+        Exam exam = updateExamStatus(examOpt.get());
+        
+        if (!isTeacher) {
             // Hide correct answers for students
             List<Question> sanitizedQuestions = exam.getQuestions().stream()
                     .map(q -> {
@@ -130,7 +297,7 @@ public class ExamService {
                         copy.setQuestionText(q.getQuestionText());
                         copy.setOptions(q.getOptions());
                         copy.setMarks(q.getMarks());
-                        copy.setOrderIndex(q.getOrderIndex());
+                        copy.setQuestionOrder(q.getQuestionOrder());
                         // Don't include correctAnswer
                         return copy;
                     })
@@ -139,7 +306,7 @@ public class ExamService {
             exam.setQuestions(sanitizedQuestions);
         }
         
-        return examOpt;
+        return Optional.of(exam);
     }
     
     /**
@@ -161,17 +328,27 @@ public class ExamService {
                 throw new RuntimeException("Exam not found");
             }
             
+            Exam exam = examOpt.get();
+            
+            // Validate submission timing
+            long now = System.currentTimeMillis();
+            if (exam.getStartDateTime() != null && now < exam.getStartDateTime()) {
+                throw new RuntimeException("Exam has not started yet");
+            }
+            if (exam.getEndDateTime() != null && now > exam.getEndDateTime()) {
+                throw new RuntimeException("Exam has ended");
+            }
+            
             Optional<User> studentOpt = userRepository.findById(studentId);
             if (studentOpt.isEmpty()) {
                 throw new RuntimeException("Student not found");
             }
             
-            Exam exam = examOpt.get();
             User student = studentOpt.get();
             
             // Auto-grade MCQ questions
             int mcqScore = 0;
-            boolean hasEssay = false;
+            boolean hasCQ = false;
             
             for (Question question : exam.getQuestions()) {
                 if (question.getType() == Question.QuestionType.MCQ) {
@@ -181,7 +358,7 @@ public class ExamService {
                         mcqScore += question.getMarks();
                     }
                 } else {
-                    hasEssay = true;
+                    hasCQ = true;
                 }
             }
             
@@ -192,7 +369,7 @@ public class ExamService {
             submission.setAnswers(answers);
             submission.setMcqScore(mcqScore);
             
-            if (hasEssay) {
+            if (hasCQ) {
                 submission.setStatus(ExamSubmission.SubmissionStatus.GRADED_MCQ);
                 submission.setTotalScore(mcqScore); // Partial score
             } else {

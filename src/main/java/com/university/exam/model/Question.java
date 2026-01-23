@@ -10,16 +10,16 @@ public class Question {
     private List<String> options; // For MCQ
     private String correctAnswer; // For MCQ (option index or text)
     private int marks;
-    private int orderIndex;
+    private int questionOrder;
     
     public enum QuestionType {
-        MCQ, ESSAY
+        MCQ, CQ
     }
     
     public Question() {}
     
     public Question(String id, String examId, QuestionType type, String questionText,
-                    List<String> options, String correctAnswer, int marks, int orderIndex) {
+                    List<String> options, String correctAnswer, int marks, int questionOrder) {
         this.id = id;
         this.examId = examId;
         this.type = type;
@@ -27,7 +27,7 @@ public class Question {
         this.options = options;
         this.correctAnswer = correctAnswer;
         this.marks = marks;
-        this.orderIndex = orderIndex;
+        this.questionOrder = questionOrder;
     }
     
     // Getters and Setters
@@ -52,6 +52,6 @@ public class Question {
     public int getMarks() { return marks; }
     public void setMarks(int marks) { this.marks = marks; }
     
-    public int getOrderIndex() { return orderIndex; }
-    public void setOrderIndex(int orderIndex) { this.orderIndex = orderIndex; }
+    public int getQuestionOrder() { return questionOrder; }
+    public void setQuestionOrder(int questionOrder) { this.questionOrder = questionOrder; }
 }
