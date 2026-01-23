@@ -306,6 +306,27 @@ public class ExamController {
             );
         }
     }
+
+    /**
+     * Get all submissions for teacher's exams
+     */
+    @GetMapping("/submissions")
+    public ResponseEntity<ApiResponse<List<ExamSubmission>>> getAllSubmissions(
+            HttpSession session) {
+        String userId = (String) session.getAttribute("userId");
+        String role = (String) session.getAttribute("role");
+        
+        if (userId == null || !"TEACHER".equals(role)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(
+                ApiResponse.error("Access denied: Teachers only")
+            );
+        }
+        
+        List<ExamSubmission> submissions = examService.getAllSubmissionsForTeacher(userId);
+        return ResponseEntity.ok(
+            ApiResponse.success("All submissions retrieved", submissions)
+        );
+    }
     
     /**
      * Get student's submissions

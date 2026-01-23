@@ -10,6 +10,7 @@ import com.university.exam.repository.UserRepository;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
+import java.util.stream.Collectors;
 import java.util.concurrent.CompletableFuture;
 
 @Service
@@ -157,6 +158,30 @@ public class ExamService {
         }
         return exam;
     }
+
+    /**
+     * Ensure questions have IDs, examId, and order set
+     */
+    private void assignQuestionMetadata(Exam exam) {
+        if (exam.getQuestions() == null) {
+            return;
+        }
+
+        if (exam.getId() == null || exam.getId().isEmpty()) {
+            exam.setId(UUID.randomUUID().toString());
+        }
+
+        for (int i = 0; i < exam.getQuestions().size(); i++) {
+            Question question = exam.getQuestions().get(i);
+            if (question.getId() == null || question.getId().isEmpty()) {
+                question.setId(UUID.randomUUID().toString());
+            }
+            question.setExamId(exam.getId());
+            if (question.getQuestionOrder() == 0) {
+                question.setQuestionOrder(i + 1);
+            }
+        }
+    }
     
     /**
      * Create a new exam (Teacher only)
@@ -173,15 +198,8 @@ public class ExamService {
             
             exam.setTeacherId(teacherId);
             exam.setTeacherName(teacher.get().getFullName());
-            
-            // Set question order if not set
-            if (exam.getQuestions() != null) {
-                for (int i = 0; i < exam.getQuestions().size(); i++) {
-                    if (exam.getQuestions().get(i).getQuestionOrder() == 0) {
-                        exam.getQuestions().get(i).setQuestionOrder(i + 1);
-                    }
-                }
-            }
+            exam.setStatus(exam.getStatus() == null ? Exam.ExamStatus.PUBLISHED : exam.getStatus());
+            assignQuestionMetadata(exam);
             
             return examRepository.save(exam);
         });
@@ -214,15 +232,7 @@ public class ExamService {
             updatedExam.setTeacherId(teacherId);
             updatedExam.setTeacherName(existingExam.get().getTeacherName());
             updatedExam.setCreatedAt(existingExam.get().getCreatedAt());
-            
-            // Set question order if not set
-            if (updatedExam.getQuestions() != null) {
-                for (int i = 0; i < updatedExam.getQuestions().size(); i++) {
-                    if (updatedExam.getQuestions().get(i).getQuestionOrder() == 0) {
-                        updatedExam.getQuestions().get(i).setQuestionOrder(i + 1);
-                    }
-                }
-            }
+            assignQuestionMetadata(updatedExam);
             
             return examRepository.save(updatedExam);
         });
@@ -364,6 +374,9 @@ public class ExamService {
             
             ExamSubmission submission = new ExamSubmission();
             submission.setExamId(examId);
+            submission.setExamTitle(exam.getTitle());
+            submission.setExamType(exam.getExamType());
+            submission.setMaxScore(exam.getTotalMarks());
             submission.setStudentId(studentId);
             submission.setStudentName(student.getFullName());
             submission.setAnswers(answers);
@@ -433,5 +446,21 @@ public class ExamService {
      */
     public Optional<ExamSubmission> getSubmission(String submissionId) {
         return submissionRepository.findById(submissionId);
+    }
+
+    /**
+     * Get all submissions for exams owned by the teacher
+     */
+    public List<ExamSubmission> getAllSubmissionsForTeacher(String teacherId) {
+        List<Exam> teacherExams = examRepository.findByTeacherId(teacherId);
+        Set<String> examIds = teacherExams.stream()
+                .map(Exam::getId)
+                .collect(Collectors.toSet());
+        
+        if (examIds.isEmpty()) {
+            return List.of();
+        }
+        
+        return submissionRepository.findByExamIdIn(examIds);
     }
 }

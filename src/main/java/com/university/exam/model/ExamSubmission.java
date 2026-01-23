@@ -1,10 +1,18 @@
 package com.university.exam.model;
 
+import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.mapping.Document;
+
 import java.util.Map;
 
+@Document(collection = "submissions")
 public class ExamSubmission {
+    @Id
     private String id;
     private String examId;
+    private String examTitle;
+    private Exam.ExamType examType;
+    private int maxScore;
     private String studentId;
     private String studentName;
     private Map<String, String> answers; // questionId -> answer
@@ -25,6 +33,9 @@ public class ExamSubmission {
                           int totalScore, long submittedAt, SubmissionStatus status) {
         this.id = id;
         this.examId = examId;
+        this.examTitle = null;
+        this.examType = null;
+        this.maxScore = 0;
         this.studentId = studentId;
         this.studentName = studentName;
         this.answers = answers;
@@ -41,6 +52,15 @@ public class ExamSubmission {
     
     public String getExamId() { return examId; }
     public void setExamId(String examId) { this.examId = examId; }
+    
+    public String getExamTitle() { return examTitle; }
+    public void setExamTitle(String examTitle) { this.examTitle = examTitle; }
+    
+    public Exam.ExamType getExamType() { return examType; }
+    public void setExamType(Exam.ExamType examType) { this.examType = examType; }
+    
+    public int getMaxScore() { return maxScore; }
+    public void setMaxScore(int maxScore) { this.maxScore = maxScore; }
     
     public String getStudentId() { return studentId; }
     public void setStudentId(String studentId) { this.studentId = studentId; }

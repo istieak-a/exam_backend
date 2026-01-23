@@ -1,6 +1,11 @@
 package com.university.exam.model;
 
+import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.mapping.Document;
+
+@Document(collection = "mcq_options")
 public class MCQOption {
+    @Id
     private String id;
     private String questionId;
     private String optionText;

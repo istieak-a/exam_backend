@@ -28,14 +28,25 @@ public class AuthController {
      * User Signup (Teacher or Student)
      */
     @PostMapping("/signup")
-    public CompletableFuture<ResponseEntity<ApiResponse<User>>> signup(
-            @RequestBody User user) {
+    public CompletableFuture<ResponseEntity<ApiResponse<Map<String, Object>>>> signup(
+            @RequestBody User user,
+            HttpSession session) {
         
         return userService.registerUser(user)
                 .thenApply(savedUser -> {
                     User userWithoutPassword = savedUser.withoutPassword();
-                    return ResponseEntity.ok(
-                        ApiResponse.success("User registered successfully", userWithoutPassword)
+                    
+                    // Create session immediately after signup for smoother UX
+                    session.setAttribute("userId", userWithoutPassword.getId());
+                    session.setAttribute("username", userWithoutPassword.getUsername());
+                    session.setAttribute("role", userWithoutPassword.getRole().toString());
+                    
+                    Map<String, Object> data = new HashMap<>();
+                    data.put("user", userWithoutPassword);
+                    data.put("sessionId", session.getId());
+                    
+                    return ResponseEntity.status(HttpStatus.CREATED).body(
+                        ApiResponse.success("User registered successfully", data)
                     );
                 })
                 .exceptionally(ex -> {
@@ -93,7 +104,7 @@ public class AuthController {
     /**
      * Get current user session
      */
-    @GetMapping("/session")
+    @GetMapping({"/session", "/me"})
     public ResponseEntity<ApiResponse<Map<String, Object>>> getSession(HttpSession session) {
         String userId = (String) session.getAttribute("userId");
         

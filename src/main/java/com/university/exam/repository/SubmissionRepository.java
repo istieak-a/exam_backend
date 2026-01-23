@@ -1,87 +1,74 @@
 package com.university.exam.repository;
 
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.university.exam.model.ExamSubmission;
+import org.bson.types.ObjectId;
+import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.stereotype.Repository;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
-import java.util.UUID;
-import java.util.stream.Collectors;
 
 @Repository
 public class SubmissionRepository {
     
-    private static final String SUBMISSIONS_FILE = "submissions.txt";
-    private final FileRepository<ExamSubmission> fileRepository;
+    private final MongoTemplate mongoTemplate;
     
-    public SubmissionRepository(FileRepository<ExamSubmission> fileRepository) {
-        this.fileRepository = fileRepository;
+    public SubmissionRepository(MongoTemplate mongoTemplate) {
+        this.mongoTemplate = mongoTemplate;
     }
     
     public List<ExamSubmission> findAll() {
-        return fileRepository.readAll(SUBMISSIONS_FILE, new TypeReference<List<ExamSubmission>>() {});
+        return mongoTemplate.findAll(ExamSubmission.class);
     }
     
     public Optional<ExamSubmission> findById(String id) {
-        return findAll().stream()
-                .filter(submission -> submission.getId().equals(id))
-                .findFirst();
+        return Optional.ofNullable(mongoTemplate.findById(id, ExamSubmission.class));
     }
     
     public List<ExamSubmission> findByExamId(String examId) {
-        return findAll().stream()
-                .filter(submission -> submission.getExamId().equals(examId))
-                .collect(Collectors.toList());
+        Query query = new Query(Criteria.where("examId").is(examId));
+        return mongoTemplate.find(query, ExamSubmission.class);
+    }
+    
+    public List<ExamSubmission> findByExamIdIn(Collection<String> examIds) {
+        Query query = new Query(Criteria.where("examId").in(examIds));
+        return mongoTemplate.find(query, ExamSubmission.class);
     }
     
     public List<ExamSubmission> findByStudentId(String studentId) {
-        return findAll().stream()
-                .filter(submission -> submission.getStudentId().equals(studentId))
-                .collect(Collectors.toList());
+        Query query = new Query(Criteria.where("studentId").is(studentId));
+        return mongoTemplate.find(query, ExamSubmission.class);
     }
     
     public Optional<ExamSubmission> findByExamAndStudent(String examId, String studentId) {
-        return findAll().stream()
-                .filter(submission -> submission.getExamId().equals(examId) 
-                        && submission.getStudentId().equals(studentId))
-                .findFirst();
+        Query query = new Query(Criteria.where("examId").is(examId).and("studentId").is(studentId));
+        return Optional.ofNullable(mongoTemplate.findOne(query, ExamSubmission.class));
     }
     
     public ExamSubmission save(ExamSubmission submission) {
-        List<ExamSubmission> submissions = findAll();
-        
         if (submission.getId() == null || submission.getId().isEmpty()) {
-            // New submission
-            submission.setId(UUID.randomUUID().toString());
+            submission.setId(new ObjectId().toString());
             submission.setSubmittedAt(System.currentTimeMillis());
-            submissions.add(submission);
-        } else {
-            // Update existing submission
-            submissions = submissions.stream()
-                    .map(s -> s.getId().equals(submission.getId()) ? submission : s)
-                    .collect(Collectors.toList());
         }
-        
-        fileRepository.writeAll(SUBMISSIONS_FILE, submissions);
+        mongoTemplate.save(submission);
         return submission;
     }
     
     public void delete(String id) {
-        List<ExamSubmission> submissions = findAll().stream()
-                .filter(submission -> !submission.getId().equals(id))
-                .collect(Collectors.toList());
-        fileRepository.writeAll(SUBMISSIONS_FILE, submissions);
+        findById(id).ifPresent(existing -> mongoTemplate.remove(existing));
     }
     
     public boolean hasSubmissions(String examId) {
-        return findAll().stream()
-                .anyMatch(submission -> submission.getExamId().equals(examId));
+        Query query = new Query(Criteria.where("examId").is(examId));
+        return mongoTemplate.exists(query, ExamSubmission.class);
     }
     
     public int countByExamId(String examId) {
-        return (int) findAll().stream()
-                .filter(submission -> submission.getExamId().equals(examId))
-                .count();
+        Query query = new Query(Criteria.where("examId").is(examId));
+        Long count = mongoTemplate.count(query, ExamSubmission.class);
+        return count != null ? count.intValue() : 0;
     }
 }

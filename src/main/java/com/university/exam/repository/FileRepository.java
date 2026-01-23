@@ -2,32 +2,19 @@ package com.university.exam.repository;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Component;
 
-import jakarta.annotation.PostConstruct;
 import java.io.*;
-import java.nio.file.*;
-import java.util.*;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
-@Component
 public class FileRepository<T> {
     
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
-    
-    @Value("${app.data.path}")
-    private String dataPath;
-    
-    @PostConstruct
-    public void init() {
-        try {
-            Files.createDirectories(Paths.get(dataPath));
-        } catch (IOException e) {
-            System.err.println("Error creating data directory: " + e.getMessage());
-        }
-    }
+    private String dataPath = "./data";
     
     /**
      * Read all entities from file with thread-safe read lock
