@@ -6,6 +6,10 @@ import com.university.exam.model.ExamSubmission;
 import com.university.exam.service.ExamService;
 import com.university.exam.service.ValidationException;
 import jakarta.servlet.http.HttpSession;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -156,10 +160,16 @@ public class ExamController {
     }
     
     /**
-     * Get all published exams (Students)
+     * Get published exams (for students) - with pagination
      */
     @GetMapping("/published")
-    public ResponseEntity<ApiResponse<List<Exam>>> getPublishedExams(HttpSession session) {
+    public ResponseEntity<ApiResponse<Map<String, Object>>> getPublishedExams(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(defaultValue = "startDateTime") String sortBy,
+            @RequestParam(defaultValue = "desc") String sortDir,
+            HttpSession session) {
+        
         String role = (String) session.getAttribute("role");
         
         if (!"STUDENT".equals(role)) {
@@ -168,17 +178,34 @@ public class ExamController {
             );
         }
         
-        List<Exam> exams = examService.getPublishedExams();
+        Sort sort = sortDir.equalsIgnoreCase("asc") ? 
+                    Sort.by(sortBy).ascending() : Sort.by(sortBy).descending();
+        Pageable pageable = PageRequest.of(page, size, sort);
+        
+        Page<Exam> examsPage = examService.getPublishedExams(pageable);
+        
+        Map<String, Object> response = new HashMap<>();
+        response.put("content", examsPage.getContent());
+        response.put("currentPage", examsPage.getNumber());
+        response.put("totalItems", examsPage.getTotalElements());
+        response.put("totalPages", examsPage.getTotalPages());
+        
         return ResponseEntity.ok(
-            ApiResponse.success("Exams retrieved", exams)
+            ApiResponse.success("Published exams retrieved", response)
         );
     }
     
     /**
-     * Get teacher's exams
+     * Get teacher's exams - with pagination
      */
     @GetMapping("/my-exams")
-    public ResponseEntity<ApiResponse<List<Exam>>> getMyExams(HttpSession session) {
+    public ResponseEntity<ApiResponse<Map<String, Object>>> getMyExams(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(defaultValue = "createdAt") String sortBy,
+            @RequestParam(defaultValue = "desc") String sortDir,
+            HttpSession session) {
+        
         String userId = (String) session.getAttribute("userId");
         String role = (String) session.getAttribute("role");
         
@@ -188,9 +215,20 @@ public class ExamController {
             );
         }
         
-        List<Exam> exams = examService.getTeacherExams(userId);
+        Sort sort = sortDir.equalsIgnoreCase("asc") ? 
+                    Sort.by(sortBy).ascending() : Sort.by(sortBy).descending();
+        Pageable pageable = PageRequest.of(page, size, sort);
+        
+        Page<Exam> examsPage = examService.getTeacherExams(userId, pageable);
+        
+        Map<String, Object> response = new HashMap<>();
+        response.put("content", examsPage.getContent());
+        response.put("currentPage", examsPage.getNumber());
+        response.put("totalItems", examsPage.getTotalElements());
+        response.put("totalPages", examsPage.getTotalPages());
+        
         return ResponseEntity.ok(
-            ApiResponse.success("Your exams retrieved", exams)
+            ApiResponse.success("Your exams retrieved", response)
         );
     }
     
@@ -277,41 +315,16 @@ public class ExamController {
                     ApiResponse.error(ex.getMessage())
                 ));
     }
-    
-    /**
-     * Get submissions for an exam (Teacher only)
-     */
-    @GetMapping("/{examId}/submissions")
-    public ResponseEntity<ApiResponse<List<ExamSubmission>>> getExamSubmissions(
-            @PathVariable String examId,
-            HttpSession session) {
-        
-        String userId = (String) session.getAttribute("userId");
-        String role = (String) session.getAttribute("role");
-        
-        if (userId == null || !"TEACHER".equals(role)) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(
-                ApiResponse.error("Access denied: Teachers only")
-            );
-        }
-        
-        try {
-            List<ExamSubmission> submissions = examService.getExamSubmissions(examId, userId);
-            return ResponseEntity.ok(
-                ApiResponse.success("Submissions retrieved", submissions)
-            );
-        } catch (Exception ex) {
-            return ResponseEntity.badRequest().body(
-                ApiResponse.error(ex.getMessage())
-            );
-        }
-    }
 
     /**
-     * Get all submissions for teacher's exams
+     * Get all submissions for teacher's exams - with pagination
      */
     @GetMapping("/submissions")
-    public ResponseEntity<ApiResponse<List<ExamSubmission>>> getAllSubmissions(
+    public ResponseEntity<ApiResponse<Map<String, Object>>> getAllSubmissions(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(defaultValue = "submittedAt") String sortBy,
+            @RequestParam(defaultValue = "desc") String sortDir,
             HttpSession session) {
         String userId = (String) session.getAttribute("userId");
         String role = (String) session.getAttribute("role");
@@ -322,17 +335,33 @@ public class ExamController {
             );
         }
         
-        List<ExamSubmission> submissions = examService.getAllSubmissionsForTeacher(userId);
+        Sort sort = sortDir.equalsIgnoreCase("asc") ? 
+                    Sort.by(sortBy).ascending() : Sort.by(sortBy).descending();
+        Pageable pageable = PageRequest.of(page, size, sort);
+        
+        Page<ExamSubmission> submissionsPage = examService.getAllSubmissionsForTeacher(userId, pageable);
+        
+        Map<String, Object> response = new HashMap<>();
+        response.put("content", submissionsPage.getContent());
+        response.put("currentPage", submissionsPage.getNumber());
+        response.put("totalItems", submissionsPage.getTotalElements());
+        response.put("totalPages", submissionsPage.getTotalPages());
+        
         return ResponseEntity.ok(
-            ApiResponse.success("All submissions retrieved", submissions)
+            ApiResponse.success("All submissions retrieved", response)
         );
     }
     
     /**
-     * Get student's submissions
+     * Get student's submissions - with pagination
      */
     @GetMapping("/my-submissions")
-    public ResponseEntity<ApiResponse<List<ExamSubmission>>> getMySubmissions(HttpSession session) {
+    public ResponseEntity<ApiResponse<Map<String, Object>>> getMySubmissions(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(defaultValue = "submittedAt") String sortBy,
+            @RequestParam(defaultValue = "desc") String sortDir,
+            HttpSession session) {
         String userId = (String) session.getAttribute("userId");
         String role = (String) session.getAttribute("role");
         
@@ -342,9 +371,20 @@ public class ExamController {
             );
         }
         
-        List<ExamSubmission> submissions = examService.getStudentSubmissions(userId);
+        Sort sort = sortDir.equalsIgnoreCase("asc") ? 
+                    Sort.by(sortBy).ascending() : Sort.by(sortBy).descending();
+        Pageable pageable = PageRequest.of(page, size, sort);
+        
+        Page<ExamSubmission> submissionsPage = examService.getStudentSubmissions(userId, pageable);
+        
+        Map<String, Object> response = new HashMap<>();
+        response.put("content", submissionsPage.getContent());
+        response.put("currentPage", submissionsPage.getNumber());
+        response.put("totalItems", submissionsPage.getTotalElements());
+        response.put("totalPages", submissionsPage.getTotalPages());
+        
         return ResponseEntity.ok(
-            ApiResponse.success("Your submissions retrieved", submissions)
+            ApiResponse.success("Your submissions retrieved", response)
         );
     }
     

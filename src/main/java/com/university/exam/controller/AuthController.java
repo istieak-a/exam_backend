@@ -168,4 +168,31 @@ public class AuthController {
             ApiResponse.success("Students retrieved", studentsWithoutPassword)
         );
     }
+    
+    /**
+     * Update user profile
+     */
+    @PutMapping("/profile")
+    public CompletableFuture<ResponseEntity<ApiResponse<User>>> updateProfile(
+            @RequestBody Map<String, String> profileData,
+            HttpSession session) {
+        
+        String userId = (String) session.getAttribute("userId");
+        
+        if (userId == null) {
+            return CompletableFuture.completedFuture(
+                ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(
+                    ApiResponse.error("Not authenticated")
+                )
+            );
+        }
+        
+        return userService.updateProfile(userId, profileData)
+                .thenApply(updatedUser -> ResponseEntity.ok(
+                    ApiResponse.success("Profile updated successfully", updatedUser.withoutPassword())
+                ))
+                .exceptionally(ex -> ResponseEntity.badRequest().body(
+                    ApiResponse.error(ex.getMessage())
+                ));
+    }
 }

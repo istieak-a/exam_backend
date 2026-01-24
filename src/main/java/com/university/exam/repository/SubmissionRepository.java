@@ -2,6 +2,9 @@ package com.university.exam.repository;
 
 import com.university.exam.model.ExamSubmission;
 import org.bson.types.ObjectId;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
@@ -38,9 +41,29 @@ public class SubmissionRepository {
         return mongoTemplate.find(query, ExamSubmission.class);
     }
     
+    public Page<ExamSubmission> findByExamIdIn(Collection<String> examIds, Pageable pageable) {
+        Query query = new Query(Criteria.where("examId").in(examIds));
+        long total = mongoTemplate.count(query, ExamSubmission.class);
+        
+        query.with(pageable);
+        List<ExamSubmission> submissions = mongoTemplate.find(query, ExamSubmission.class);
+        
+        return new PageImpl<>(submissions, pageable, total);
+    }
+    
     public List<ExamSubmission> findByStudentId(String studentId) {
         Query query = new Query(Criteria.where("studentId").is(studentId));
         return mongoTemplate.find(query, ExamSubmission.class);
+    }
+    
+    public Page<ExamSubmission> findByStudentId(String studentId, Pageable pageable) {
+        Query query = new Query(Criteria.where("studentId").is(studentId));
+        long total = mongoTemplate.count(query, ExamSubmission.class);
+        
+        query.with(pageable);
+        List<ExamSubmission> submissions = mongoTemplate.find(query, ExamSubmission.class);
+        
+        return new PageImpl<>(submissions, pageable, total);
     }
     
     public Optional<ExamSubmission> findByExamAndStudent(String examId, String studentId) {

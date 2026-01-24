@@ -7,6 +7,8 @@ import com.university.exam.model.User;
 import com.university.exam.repository.ExamRepository;
 import com.university.exam.repository.SubmissionRepository;
 import com.university.exam.repository.UserRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
@@ -274,6 +276,15 @@ public class ExamService {
     }
     
     /**
+     * Get published exams with pagination (for students)
+     */
+    public Page<Exam> getPublishedExams(Pageable pageable) {
+        Page<Exam> exams = examRepository.findPublished(pageable);
+        // Update status for each exam
+        return exams.map(this::updateExamStatus);
+    }
+    
+    /**
      * Get teacher's exams
      */
     public List<Exam> getTeacherExams(String teacherId) {
@@ -282,6 +293,15 @@ public class ExamService {
         return exams.stream()
                 .map(this::updateExamStatus)
                 .toList();
+    }
+    
+    /**
+     * Get teacher's exams with pagination
+     */
+    public Page<Exam> getTeacherExams(String teacherId, Pageable pageable) {
+        Page<Exam> exams = examRepository.findByTeacherId(teacherId, pageable);
+        // Update status for each exam
+        return exams.map(this::updateExamStatus);
     }
     
     /**
@@ -442,6 +462,13 @@ public class ExamService {
     }
     
     /**
+     * Get student's submissions with pagination
+     */
+    public Page<ExamSubmission> getStudentSubmissions(String studentId, Pageable pageable) {
+        return submissionRepository.findByStudentId(studentId, pageable);
+    }
+    
+    /**
      * Get specific submission
      */
     public Optional<ExamSubmission> getSubmission(String submissionId) {
@@ -462,5 +489,21 @@ public class ExamService {
         }
         
         return submissionRepository.findByExamIdIn(examIds);
+    }
+    
+    /**
+     * Get all submissions for exams owned by the teacher with pagination
+     */
+    public Page<ExamSubmission> getAllSubmissionsForTeacher(String teacherId, Pageable pageable) {
+        List<Exam> teacherExams = examRepository.findByTeacherId(teacherId);
+        Set<String> examIds = teacherExams.stream()
+                .map(Exam::getId)
+                .collect(Collectors.toSet());
+        
+        if (examIds.isEmpty()) {
+            return Page.empty(pageable);
+        }
+        
+        return submissionRepository.findByExamIdIn(examIds, pageable);
     }
 }

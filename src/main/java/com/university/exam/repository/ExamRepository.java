@@ -2,6 +2,9 @@ package com.university.exam.repository;
 
 import com.university.exam.model.Exam;
 import org.bson.types.ObjectId;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
@@ -33,9 +36,29 @@ public class ExamRepository {
         return mongoTemplate.find(query, Exam.class);
     }
     
+    public Page<Exam> findByTeacherId(String teacherId, Pageable pageable) {
+        Query query = new Query(Criteria.where("teacherId").is(teacherId));
+        long total = mongoTemplate.count(query, Exam.class);
+        
+        query.with(pageable);
+        List<Exam> exams = mongoTemplate.find(query, Exam.class);
+        
+        return new PageImpl<>(exams, pageable, total);
+    }
+    
     public List<Exam> findPublished() {
         Query query = new Query(Criteria.where("status").is(Exam.ExamStatus.PUBLISHED));
         return mongoTemplate.find(query, Exam.class);
+    }
+    
+    public Page<Exam> findPublished(Pageable pageable) {
+        Query query = new Query(Criteria.where("status").is(Exam.ExamStatus.PUBLISHED));
+        long total = mongoTemplate.count(query, Exam.class);
+        
+        query.with(pageable);
+        List<Exam> exams = mongoTemplate.find(query, Exam.class);
+        
+        return new PageImpl<>(exams, pageable, total);
     }
     
     public List<Exam> findByStatus(Exam.ExamStatus status) {
