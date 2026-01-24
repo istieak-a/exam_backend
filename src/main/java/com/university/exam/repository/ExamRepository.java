@@ -47,15 +47,15 @@ public class ExamRepository {
     }
     
     public List<Exam> findPublished() {
-        Query query = new Query(Criteria.where("status").is(Exam.ExamStatus.PUBLISHED));
+        Query query = new Query(Criteria.where("status").in(Exam.ExamStatus.PUBLISHED, Exam.ExamStatus.ACTIVE));
         return mongoTemplate.find(query, Exam.class);
     }
     
     public Page<Exam> findPublished(Pageable pageable) {
-        Query query = new Query(Criteria.where("status").is(Exam.ExamStatus.PUBLISHED));
+        Query query = new Query(Criteria.where("status").in(Exam.ExamStatus.PUBLISHED, Exam.ExamStatus.ACTIVE));
         long total = mongoTemplate.count(query, Exam.class);
         
-        System.out.println("🔍 Searching for published exams with status: " + Exam.ExamStatus.PUBLISHED);
+        System.out.println("🔍 Searching for published exams with status: PUBLISHED or ACTIVE");
         System.out.println("📊 Total published exams found: " + total);
         
         query.with(pageable);
