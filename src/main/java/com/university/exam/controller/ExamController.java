@@ -170,19 +170,24 @@ public class ExamController {
             @RequestParam(defaultValue = "desc") String sortDir,
             HttpSession session) {
         
+        // Allow both students and teachers to view published exams
+        String userId = (String) session.getAttribute("userId");
         String role = (String) session.getAttribute("role");
         
-        if (!"STUDENT".equals(role)) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(
-                ApiResponse.error("Access denied: Students only")
+        if (userId == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(
+                ApiResponse.error("Authentication required")
             );
         }
+        
+        System.out.println("🔍 Getting published exams - User: " + userId + ", Role: " + role);
         
         Sort sort = sortDir.equalsIgnoreCase("asc") ? 
                     Sort.by(sortBy).ascending() : Sort.by(sortBy).descending();
         Pageable pageable = PageRequest.of(page, size, sort);
         
         Page<Exam> examsPage = examService.getPublishedExams(pageable);
+        System.out.println("📚 Found " + examsPage.getTotalElements() + " published exams");
         
         Map<String, Object> response = new HashMap<>();
         response.put("content", examsPage.getContent());

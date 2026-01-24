@@ -203,7 +203,14 @@ public class ExamService {
             exam.setStatus(exam.getStatus() == null ? Exam.ExamStatus.PUBLISHED : exam.getStatus());
             assignQuestionMetadata(exam);
             
-            return examRepository.save(exam);
+            System.out.println("🆕 Creating exam with status: " + exam.getStatus());
+            System.out.println("📝 Exam title: " + exam.getTitle());
+            System.out.println("👨‍🏫 Teacher: " + exam.getTeacherName());
+            
+            Exam savedExam = examRepository.save(exam);
+            System.out.println("✅ Exam saved with ID: " + savedExam.getId() + ", Status: " + savedExam.getStatus());
+            
+            return savedExam;
         });
     }
     

@@ -55,8 +55,16 @@ public class ExamRepository {
         Query query = new Query(Criteria.where("status").is(Exam.ExamStatus.PUBLISHED));
         long total = mongoTemplate.count(query, Exam.class);
         
+        System.out.println("🔍 Searching for published exams with status: " + Exam.ExamStatus.PUBLISHED);
+        System.out.println("📊 Total published exams found: " + total);
+        
         query.with(pageable);
         List<Exam> exams = mongoTemplate.find(query, Exam.class);
+        
+        System.out.println("📚 Exams in current page: " + exams.size());
+        for (Exam exam : exams) {
+            System.out.println("  - " + exam.getTitle() + " (Status: " + exam.getStatus() + ")");
+        }
         
         return new PageImpl<>(exams, pageable, total);
     }

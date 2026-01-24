@@ -170,6 +170,51 @@ public class AuthController {
     }
     
     /**
+     * Switch user role (for demo purposes - allows users to test both interfaces)
+     */
+    @PostMapping("/switch-role")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> switchRole(HttpSession session) {
+        String userId = (String) session.getAttribute("userId");
+        String currentRole = (String) session.getAttribute("role");
+        
+        if (userId == null || currentRole == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(
+                ApiResponse.error("Not authenticated")
+            );
+        }
+        
+        // Switch role
+        String newRole = "TEACHER".equals(currentRole) ? "STUDENT" : "TEACHER";
+        session.setAttribute("role", newRole);
+        
+        // Get updated user data
+        Optional<User> userOpt = userService.findById(userId);
+        if (userOpt.isPresent()) {
+            User user = userOpt.get();
+            // Create a copy with the new role for response
+            User updatedUser = new User();
+            updatedUser.setId(user.getId());
+            updatedUser.setUsername(user.getUsername());
+            updatedUser.setEmail(user.getEmail());
+            updatedUser.setFullName(user.getFullName());
+            updatedUser.setRole(User.UserRole.valueOf(newRole));
+            updatedUser.setCreatedAt(user.getCreatedAt());
+            
+            Map<String, Object> data = new HashMap<>();
+            data.put("user", updatedUser);
+            data.put("sessionId", session.getId());
+            
+            return ResponseEntity.ok(
+                ApiResponse.success("Role switched successfully", data)
+            );
+        } else {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(
+                ApiResponse.error("User not found")
+            );
+        }
+    }
+    
+    /**
      * Update user profile
      */
     @PutMapping("/profile")
