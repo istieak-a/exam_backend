@@ -50,6 +50,12 @@
             <artifactId>spring-security-crypto</artifactId>
         </dependency>
 
+        <!-- Spring Session MongoDB for persistent sessions -->
+        <dependency>
+            <groupId>org.springframework.session</groupId>
+            <artifactId>spring-session-data-mongodb</artifactId>
+        </dependency>
+
         <!-- JSON Processing -->
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
