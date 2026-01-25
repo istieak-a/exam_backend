@@ -296,7 +296,7 @@ public class ExamController {
     @PostMapping("/submissions/{submissionId}/grade")
     public CompletableFuture<ResponseEntity<ApiResponse<ExamSubmission>>> gradeEssay(
             @PathVariable String submissionId,
-            @RequestBody Map<String, Integer> gradeData,
+            @RequestBody Map<String, Object> gradeData,
             HttpSession session) {
         
         String userId = (String) session.getAttribute("userId");
@@ -310,11 +310,13 @@ public class ExamController {
             );
         }
         
-        int essayScore = gradeData.getOrDefault("essayScore", 0);
+        // Extract question grades from the request
+        @SuppressWarnings("unchecked")
+        Map<String, Integer> questionGrades = (Map<String, Integer>) gradeData.get("questionGrades");
         
-        return examService.gradeEssay(submissionId, essayScore, userId)
+        return examService.gradeCQSubmission(submissionId, questionGrades, userId)
                 .thenApply(submission -> ResponseEntity.ok(
-                    ApiResponse.success("Essay graded successfully", submission)
+                    ApiResponse.success("Submission graded successfully", submission)
                 ))
                 .exceptionally(ex -> ResponseEntity.badRequest().body(
                     ApiResponse.error(ex.getMessage())

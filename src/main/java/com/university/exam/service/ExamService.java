@@ -347,17 +347,19 @@ public class ExamService {
     }
     
     /**
-     * Submit exam with auto-grading for MCQ questions
+     * Submit exam with auto-grading for MCQ questions.
+     * Students can submit the same exam multiple times - previous submission will be replaced.
      */
     public CompletableFuture<ExamSubmission> submitExam(
             String examId, String studentId, Map<String, String> answers) {
         
         return CompletableFuture.supplyAsync(() -> {
-            // Check if already submitted
+            // Allow unlimited attempts - delete previous submission if exists
             Optional<ExamSubmission> existing = 
                 submissionRepository.findByExamAndStudent(examId, studentId);
             if (existing.isPresent()) {
-                throw new RuntimeException("You have already submitted this exam");
+                // Delete previous submission to allow resubmission
+                submissionRepository.delete(existing.get().getId());
             }
             
             Optional<Exam> examOpt = examRepository.findById(examId);
@@ -443,6 +445,38 @@ public class ExamService {
             
             submission.setEssayScore(essayScore);
             submission.setTotalScore(submission.getMcqScore() + essayScore);
+            submission.setStatus(ExamSubmission.SubmissionStatus.FULLY_GRADED);
+            
+            return submissionRepository.save(submission);
+        });
+    }
+    
+    /**
+     * Grade CQ submission with per-question marks (Teacher only)
+     */
+    public CompletableFuture<ExamSubmission> gradeCQSubmission(
+            String submissionId, Map<String, Integer> questionGrades, String teacherId) {
+        
+        return CompletableFuture.supplyAsync(() -> {
+            Optional<ExamSubmission> submissionOpt = submissionRepository.findById(submissionId);
+            if (submissionOpt.isEmpty()) {
+                throw new RuntimeException("Submission not found");
+            }
+            
+            ExamSubmission submission = submissionOpt.get();
+            
+            // Verify teacher owns the exam
+            Optional<Exam> examOpt = examRepository.findById(submission.getExamId());
+            if (examOpt.isEmpty() || !examOpt.get().getTeacherId().equals(teacherId)) {
+                throw new RuntimeException("Unauthorized: You can only grade your own exams");
+            }
+            
+            // Calculate total marks from question grades
+            int cqScore = questionGrades.values().stream().mapToInt(Integer::intValue).sum();
+            
+            submission.setQuestionGrades(questionGrades);
+            submission.setEssayScore(cqScore);
+            submission.setTotalScore(submission.getMcqScore() + cqScore);
             submission.setStatus(ExamSubmission.SubmissionStatus.FULLY_GRADED);
             
             return submissionRepository.save(submission);

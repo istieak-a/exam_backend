@@ -18,6 +18,7 @@ public class ExamSubmission {
     private Map<String, String> answers; // questionId -> answer
     private int mcqScore;
     private Integer essayScore; // Nullable, set by teacher
+    private Map<String, Integer> questionGrades; // questionId -> marks awarded for CQ questions
     private int totalScore;
     private long submittedAt;
     private SubmissionStatus status;
@@ -79,6 +80,9 @@ public class ExamSubmission {
     
     public int getTotalScore() { return totalScore; }
     public void setTotalScore(int totalScore) { this.totalScore = totalScore; }
+    
+    public Map<String, Integer> getQuestionGrades() { return questionGrades; }
+    public void setQuestionGrades(Map<String, Integer> questionGrades) { this.questionGrades = questionGrades; }
     
     public long getSubmittedAt() { return submittedAt; }
     public void setSubmittedAt(long submittedAt) { this.submittedAt = submittedAt; }
