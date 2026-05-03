@@ -1,78 +1,28 @@
 package com.university.exam.repository;
 
 import com.university.exam.model.ChatMessage;
-import org.bson.types.ObjectId;
-import org.springframework.data.domain.Sort;
-import org.springframework.data.mongodb.core.MongoTemplate;
-import org.springframework.data.mongodb.core.query.Criteria;
-import org.springframework.data.mongodb.core.query.Query;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
 
 @Repository
-public class MessageRepository {
+public interface MessageRepository extends JpaRepository<ChatMessage, Long> {
 
-    private final MongoTemplate mongoTemplate;
+    List<ChatMessage> findByTypeOrderByTimestampDesc(ChatMessage.MessageType type, Pageable pageable);
 
-    public MessageRepository(MongoTemplate mongoTemplate) {
-        this.mongoTemplate = mongoTemplate;
-    }
+    List<ChatMessage> findByTypeAndTimestampLessThanOrderByTimestampDesc(
+            ChatMessage.MessageType type, long beforeTimestamp, Pageable pageable);
 
-    public List<ChatMessage> findAll() {
-        Query query = new Query().with(Sort.by(Sort.Direction.DESC, "timestamp"));
-        return mongoTemplate.find(query, ChatMessage.class);
-    }
+    @Query("SELECT m FROM ChatMessage m WHERE m.type = com.university.exam.model.ChatMessage$MessageType.PRIVATE " +
+           "AND ((m.senderId = :a AND m.receiverId = :b) OR (m.senderId = :b AND m.receiverId = :a)) " +
+           "ORDER BY m.timestamp DESC")
+    List<ChatMessage> findPrivateMessages(@Param("a") Long a, @Param("b") Long b, Pageable pageable);
 
-    public List<ChatMessage> findGlobalMessages(int limit) {
-        Query query = new Query(Criteria.where("type").is(ChatMessage.MessageType.GLOBAL))
-                .with(Sort.by(Sort.Direction.DESC, "timestamp"))
-                .limit(limit);
-        return mongoTemplate.find(query, ChatMessage.class);
-    }
-
-    public List<ChatMessage> findGlobalMessages(int limit, long beforeTimestamp) {
-        Criteria criteria = Criteria.where("type").is(ChatMessage.MessageType.GLOBAL);
-        if (beforeTimestamp > 0) {
-            criteria.and("timestamp").lt(beforeTimestamp);
-        }
-
-        Query query = new Query(criteria)
-                .with(Sort.by(Sort.Direction.DESC, "timestamp"))
-                .limit(limit);
-        return mongoTemplate.find(query, ChatMessage.class);
-    }
-
-    public List<ChatMessage> findPrivateMessages(String userId1, String userId2, int limit) {
-        Criteria participants = new Criteria().orOperator(
-                new Criteria().andOperator(
-                        Criteria.where("senderId").is(userId1),
-                        Criteria.where("receiverId").is(userId2)),
-                new Criteria().andOperator(
-                        Criteria.where("senderId").is(userId2),
-                        Criteria.where("receiverId").is(userId1)));
-        Query query = new Query(
-                Criteria.where("type").is(ChatMessage.MessageType.PRIVATE)
-                        .andOperator(participants))
-                .with(Sort.by(Sort.Direction.DESC, "timestamp")).limit(limit);
-        return mongoTemplate.find(query, ChatMessage.class);
-    }
-
-    public List<ChatMessage> findUserConversations(String userId) {
-        Criteria criteria = new Criteria().orOperator(
-                Criteria.where("senderId").is(userId),
-                Criteria.where("receiverId").is(userId)).and("type").is(ChatMessage.MessageType.PRIVATE);
-        Query query = new Query(criteria).with(Sort.by(Sort.Direction.DESC, "timestamp"));
-        return mongoTemplate.find(query, ChatMessage.class);
-    }
-
-    public ChatMessage save(ChatMessage message) {
-        if (message.getId() == null || message.getId().isEmpty()) {
-            message.setId(new ObjectId().toString());
-            message.setTimestamp(System.currentTimeMillis());
-        }
-
-        mongoTemplate.save(message);
-        return message;
-    }
+    @Query("SELECT m FROM ChatMessage m WHERE m.type = com.university.exam.model.ChatMessage$MessageType.PRIVATE " +
+           "AND (m.senderId = :uid OR m.receiverId = :uid) ORDER BY m.timestamp DESC")
+    List<ChatMessage> findUserConversations(@Param("uid") Long uid);
 }

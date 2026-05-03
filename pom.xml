@@ -38,10 +38,17 @@
             <artifactId>spring-boot-starter-websocket</artifactId>
         </dependency>
 
-        <!-- Spring Data MongoDB -->
+        <!-- Spring Data JPA -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-data-mongodb</artifactId>
+            <artifactId>spring-boot-starter-data-jpa</artifactId>
+        </dependency>
+
+        <!-- MySQL Connector -->
+        <dependency>
+            <groupId>com.mysql</groupId>
+            <artifactId>mysql-connector-j</artifactId>
+            <scope>runtime</scope>
         </dependency>
 
         <!-- Spring Security Crypto for BCrypt -->
@@ -50,10 +57,10 @@
             <artifactId>spring-security-crypto</artifactId>
         </dependency>
 
-        <!-- Spring Session MongoDB for persistent sessions -->
+        <!-- Spring Session JDBC for persistent sessions in MySQL -->
         <dependency>
             <groupId>org.springframework.session</groupId>
-            <artifactId>spring-session-data-mongodb</artifactId>
+            <artifactId>spring-session-jdbc</artifactId>
         </dependency>
 
         <!-- JSON Processing -->

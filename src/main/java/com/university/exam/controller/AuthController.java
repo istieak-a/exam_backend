@@ -24,9 +24,6 @@ public class AuthController {
                 this.userService = userService;
         }
 
-        /**
-         * User Signup (Teacher or Student)
-         */
         @PostMapping("/signup")
         public CompletableFuture<ResponseEntity<ApiResponse<Map<String, Object>>>> signup(
                         @RequestBody User user,
@@ -36,7 +33,6 @@ public class AuthController {
                                 .thenApply(savedUser -> {
                                         User userWithoutPassword = savedUser.withoutPassword();
 
-                                        // Create session immediately after signup for smoother UX
                                         session.setAttribute("userId", userWithoutPassword.getId());
                                         session.setAttribute("username", userWithoutPassword.getUsername());
                                         session.setAttribute("role", userWithoutPassword.getRole().toString());
@@ -54,9 +50,6 @@ public class AuthController {
                                 });
         }
 
-        /**
-         * User Login
-         */
         @PostMapping("/login")
         public CompletableFuture<ResponseEntity<ApiResponse<Map<String, Object>>>> login(
                         @RequestBody Map<String, String> credentials,
@@ -70,7 +63,6 @@ public class AuthController {
                                         if (userOpt.isPresent()) {
                                                 User user = userOpt.get();
 
-                                                // Store user in session
                                                 session.setAttribute("userId", user.getId());
                                                 session.setAttribute("username", user.getUsername());
                                                 session.setAttribute("role", user.getRole().toString());
@@ -88,21 +80,15 @@ public class AuthController {
                                 });
         }
 
-        /**
-         * Logout
-         */
         @PostMapping("/logout")
         public ResponseEntity<ApiResponse<Void>> logout(HttpSession session) {
                 session.invalidate();
                 return ResponseEntity.ok(ApiResponse.success("Logged out successfully", null));
         }
 
-        /**
-         * Get current user session
-         */
         @GetMapping({ "/session", "/me" })
         public ResponseEntity<ApiResponse<Map<String, Object>>> getSession(HttpSession session) {
-                String userId = (String) session.getAttribute("userId");
+                Long userId = (Long) session.getAttribute("userId");
 
                 if (userId == null) {
                         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(
@@ -124,9 +110,6 @@ public class AuthController {
                 }
         }
 
-        /**
-         * Get all teachers (for student to view)
-         */
         @GetMapping("/teachers")
         public ResponseEntity<ApiResponse<List<User>>> getAllTeachers() {
                 List<User> teachers = userService.findAllTeachers();
@@ -138,9 +121,6 @@ public class AuthController {
                                 ApiResponse.success("Teachers retrieved", teachersWithoutPassword));
         }
 
-        /**
-         * Get all students (for teacher to view)
-         */
         @GetMapping("/students")
         public ResponseEntity<ApiResponse<List<User>>> getAllStudents(HttpSession session) {
                 String role = (String) session.getAttribute("role");
@@ -159,15 +139,12 @@ public class AuthController {
                                 ApiResponse.success("Students retrieved", studentsWithoutPassword));
         }
 
-        /**
-         * Change password
-         */
         @PostMapping("/change-password")
         public CompletableFuture<ResponseEntity<ApiResponse<Object>>> changePassword(
                         @RequestBody Map<String, String> passwordData,
                         HttpSession session) {
 
-                String userId = (String) session.getAttribute("userId");
+                Long userId = (Long) session.getAttribute("userId");
                 String currentPassword = passwordData.get("currentPassword");
                 String newPassword = passwordData.get("newPassword");
 
@@ -190,15 +167,12 @@ public class AuthController {
                                                 ApiResponse.error(ex.getCause().getMessage())));
         }
 
-        /**
-         * Update user profile
-         */
         @PutMapping("/profile")
         public CompletableFuture<ResponseEntity<ApiResponse<User>>> updateProfile(
                         @RequestBody Map<String, String> profileData,
                         HttpSession session) {
 
-                String userId = (String) session.getAttribute("userId");
+                Long userId = (Long) session.getAttribute("userId");
 
                 if (userId == null) {
                         return CompletableFuture.completedFuture(

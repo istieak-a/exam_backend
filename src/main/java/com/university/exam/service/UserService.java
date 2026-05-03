@@ -21,38 +21,30 @@ public class UserService {
         this.passwordEncoder = new BCryptPasswordEncoder();
     }
 
-    /**
-     * Register a new user (Thread-safe operation)
-     */
     public CompletableFuture<User> registerUser(User user) {
         return CompletableFuture.supplyAsync(() -> {
-            // Validate username uniqueness
-            if (userRepository.existsByUsername(user.getUsername())) {
+            if (userRepository.existsByUsernameIgnoreCase(user.getUsername())) {
                 throw new RuntimeException("Username already exists");
             }
-
-            // Validate email uniqueness
-            if (userRepository.existsByEmail(user.getEmail())) {
+            if (userRepository.existsByEmailIgnoreCase(user.getEmail())) {
                 throw new RuntimeException("Email already exists");
             }
 
-            // Hash password before saving
             user.setPassword(passwordEncoder.encode(user.getPassword()));
+            if (user.getCreatedAt() == 0L) {
+                user.setCreatedAt(System.currentTimeMillis());
+            }
 
             return userRepository.save(user);
         });
     }
 
-    /**
-     * Authenticate user (Thread-safe operation)
-     */
     public CompletableFuture<Optional<User>> login(String email, String password) {
         return CompletableFuture.supplyAsync(() -> {
-            Optional<User> userOpt = userRepository.findByEmail(email);
+            Optional<User> userOpt = userRepository.findByEmailIgnoreCase(email);
 
             if (userOpt.isPresent()) {
                 User user = userOpt.get();
-                // Verify password using BCrypt
                 if (passwordEncoder.matches(password, user.getPassword())) {
                     return Optional.of(user);
                 }
@@ -62,12 +54,12 @@ public class UserService {
         });
     }
 
-    public Optional<User> findById(String id) {
+    public Optional<User> findById(Long id) {
         return userRepository.findById(id);
     }
 
     public Optional<User> findByUsername(String username) {
-        return userRepository.findByUsername(username);
+        return userRepository.findByUsernameIgnoreCase(username);
     }
 
     public List<User> findAllTeachers() {
@@ -82,10 +74,7 @@ public class UserService {
         return userRepository.findAll();
     }
 
-    /**
-     * Update user profile (Thread-safe operation)
-     */
-    public CompletableFuture<User> updateProfile(String userId, Map<String, String> profileData) {
+    public CompletableFuture<User> updateProfile(Long userId, Map<String, String> profileData) {
         return CompletableFuture.supplyAsync(() -> {
             Optional<User> userOpt = userRepository.findById(userId);
 
@@ -95,21 +84,18 @@ public class UserService {
 
             User user = userOpt.get();
 
-            // Update allowed fields
             if (profileData.containsKey("fullName")) {
                 user.setFullName(profileData.get("fullName"));
             }
             if (profileData.containsKey("email")) {
                 String newEmail = profileData.get("email");
-                // Check if email is already taken by another user
-                Optional<User> existingUser = userRepository.findByEmail(newEmail);
+                Optional<User> existingUser = userRepository.findByEmailIgnoreCase(newEmail);
                 if (existingUser.isPresent() && !existingUser.get().getId().equals(userId)) {
                     throw new RuntimeException("Email already taken");
                 }
                 user.setEmail(newEmail);
             }
             if (profileData.containsKey("password")) {
-                // Hash new password
                 user.setPassword(passwordEncoder.encode(profileData.get("password")));
             }
 
@@ -117,10 +103,7 @@ public class UserService {
         });
     }
 
-    /**
-     * Change user password (Thread-safe operation)
-     */
-    public CompletableFuture<Boolean> changePassword(String userId, String currentPassword, String newPassword) {
+    public CompletableFuture<Boolean> changePassword(Long userId, String currentPassword, String newPassword) {
         return CompletableFuture.supplyAsync(() -> {
             Optional<User> userOpt = userRepository.findById(userId);
 
@@ -130,12 +113,10 @@ public class UserService {
 
             User user = userOpt.get();
 
-            // Verify current password
             if (!passwordEncoder.matches(currentPassword, user.getPassword())) {
                 throw new RuntimeException("Incorrect current password");
             }
 
-            // Update with new password
             user.setPassword(passwordEncoder.encode(newPassword));
             userRepository.save(user);
 

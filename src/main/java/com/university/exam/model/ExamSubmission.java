@@ -1,92 +1,211 @@
 package com.university.exam.model;
 
-import org.springframework.data.annotation.Id;
-import org.springframework.data.mongodb.core.mapping.Document;
+import jakarta.persistence.CascadeType;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.OneToMany;
+import jakarta.persistence.Table;
+import jakarta.persistence.Transient;
 
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
-@Document(collection = "submissions")
+@Entity
+@Table(name = "exam_submissions")
 public class ExamSubmission {
     @Id
-    private String id;
-    private String examId;
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(name = "exam_id", nullable = false)
+    private Long examId;
+
+    @Column(name = "exam_title")
     private String examTitle;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "exam_type")
     private Exam.ExamType examType;
+
+    @Column(name = "max_score")
     private int maxScore;
-    private String studentId;
+
+    @Column(name = "student_id", nullable = false)
+    private Long studentId;
+
+    @Column(name = "student_name")
     private String studentName;
-    private Map<String, String> answers; // questionId -> answer
+
+    @OneToMany(mappedBy = "submission", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
+    private List<SubmissionAnswer> submissionAnswers = new ArrayList<>();
+
+    @Column(name = "mcq_score")
     private int mcqScore;
-    private Integer essayScore; // Nullable, set by teacher
-    private Map<String, Integer> questionGrades; // questionId -> marks awarded for CQ questions
+
+    @Column(name = "essay_score")
+    private Integer essayScore;
+
+    @Column(name = "total_score")
     private int totalScore;
+
+    @Column(name = "submitted_at")
     private long submittedAt;
+
+    @Enumerated(EnumType.STRING)
     private SubmissionStatus status;
-    
+
     public enum SubmissionStatus {
         SUBMITTED, GRADED_MCQ, FULLY_GRADED
     }
-    
+
     public ExamSubmission() {}
-    
-    public ExamSubmission(String id, String examId, String studentId, String studentName,
-                          Map<String, String> answers, int mcqScore, Integer essayScore,
-                          int totalScore, long submittedAt, SubmissionStatus status) {
-        this.id = id;
-        this.examId = examId;
-        this.examTitle = null;
-        this.examType = null;
-        this.maxScore = 0;
-        this.studentId = studentId;
-        this.studentName = studentName;
-        this.answers = answers;
-        this.mcqScore = mcqScore;
-        this.essayScore = essayScore;
-        this.totalScore = totalScore;
-        this.submittedAt = submittedAt;
-        this.status = status;
-    }
-    
-    // Getters and Setters
-    public String getId() { return id; }
-    public void setId(String id) { this.id = id; }
-    
-    public String getExamId() { return examId; }
-    public void setExamId(String examId) { this.examId = examId; }
-    
+
+    public Long getId() { return id; }
+    public void setId(Long id) { this.id = id; }
+
+    public Long getExamId() { return examId; }
+    public void setExamId(Long examId) { this.examId = examId; }
+
     public String getExamTitle() { return examTitle; }
     public void setExamTitle(String examTitle) { this.examTitle = examTitle; }
-    
+
     public Exam.ExamType getExamType() { return examType; }
     public void setExamType(Exam.ExamType examType) { this.examType = examType; }
-    
+
     public int getMaxScore() { return maxScore; }
     public void setMaxScore(int maxScore) { this.maxScore = maxScore; }
-    
-    public String getStudentId() { return studentId; }
-    public void setStudentId(String studentId) { this.studentId = studentId; }
-    
+
+    public Long getStudentId() { return studentId; }
+    public void setStudentId(Long studentId) { this.studentId = studentId; }
+
     public String getStudentName() { return studentName; }
     public void setStudentName(String studentName) { this.studentName = studentName; }
-    
-    public Map<String, String> getAnswers() { return answers; }
-    public void setAnswers(Map<String, String> answers) { this.answers = answers; }
-    
+
+    public List<SubmissionAnswer> getSubmissionAnswers() { return submissionAnswers; }
+    public void setSubmissionAnswers(List<SubmissionAnswer> submissionAnswers) {
+        if (this.submissionAnswers == null) {
+            this.submissionAnswers = new ArrayList<>();
+        }
+        this.submissionAnswers.clear();
+        if (submissionAnswers != null) {
+            for (SubmissionAnswer sa : submissionAnswers) {
+                sa.setSubmission(this);
+                this.submissionAnswers.add(sa);
+            }
+        }
+    }
+
+    /**
+     * Frontend contract preserved: answers map of questionId(string) -> answer.
+     */
+    @Transient
+    public Map<String, String> getAnswers() {
+        if (submissionAnswers == null) return new LinkedHashMap<>();
+        Map<String, String> result = new LinkedHashMap<>();
+        for (SubmissionAnswer sa : submissionAnswers) {
+            if (sa.getQuestionId() != null) {
+                result.put(sa.getQuestionId().toString(), sa.getAnswer());
+            }
+        }
+        return result;
+    }
+
+    public void setAnswers(Map<String, String> answers) {
+        if (this.submissionAnswers == null) {
+            this.submissionAnswers = new ArrayList<>();
+        }
+        // Merge into existing rows (keep awardedMarks already assigned)
+        Map<Long, SubmissionAnswer> existing = new HashMap<>();
+        for (SubmissionAnswer sa : this.submissionAnswers) {
+            if (sa.getQuestionId() != null) {
+                existing.put(sa.getQuestionId(), sa);
+            }
+        }
+        this.submissionAnswers.clear();
+        if (answers == null) {
+            return;
+        }
+        for (Map.Entry<String, String> entry : answers.entrySet()) {
+            Long qid = parseLongOrNull(entry.getKey());
+            if (qid == null) continue;
+            SubmissionAnswer row = existing.get(qid);
+            if (row == null) {
+                row = new SubmissionAnswer();
+                row.setQuestionId(qid);
+            }
+            row.setSubmission(this);
+            row.setAnswer(entry.getValue());
+            this.submissionAnswers.add(row);
+        }
+    }
+
+    @Transient
+    public Map<String, Integer> getQuestionGrades() {
+        if (submissionAnswers == null) return new LinkedHashMap<>();
+        Map<String, Integer> result = new LinkedHashMap<>();
+        for (SubmissionAnswer sa : submissionAnswers) {
+            if (sa.getQuestionId() != null && sa.getAwardedMarks() != null) {
+                result.put(sa.getQuestionId().toString(), sa.getAwardedMarks());
+            }
+        }
+        return result;
+    }
+
+    public void setQuestionGrades(Map<String, Integer> questionGrades) {
+        if (this.submissionAnswers == null || questionGrades == null) {
+            return;
+        }
+        Map<Long, SubmissionAnswer> byId = new HashMap<>();
+        for (SubmissionAnswer sa : this.submissionAnswers) {
+            if (sa.getQuestionId() != null) {
+                byId.put(sa.getQuestionId(), sa);
+            }
+        }
+        for (Map.Entry<String, Integer> entry : questionGrades.entrySet()) {
+            Long qid = parseLongOrNull(entry.getKey());
+            if (qid == null) continue;
+            SubmissionAnswer row = byId.get(qid);
+            if (row == null) {
+                row = new SubmissionAnswer();
+                row.setSubmission(this);
+                row.setQuestionId(qid);
+                this.submissionAnswers.add(row);
+                byId.put(qid, row);
+            }
+            row.setAwardedMarks(entry.getValue());
+        }
+    }
+
     public int getMcqScore() { return mcqScore; }
     public void setMcqScore(int mcqScore) { this.mcqScore = mcqScore; }
-    
+
     public Integer getEssayScore() { return essayScore; }
     public void setEssayScore(Integer essayScore) { this.essayScore = essayScore; }
-    
+
     public int getTotalScore() { return totalScore; }
     public void setTotalScore(int totalScore) { this.totalScore = totalScore; }
-    
-    public Map<String, Integer> getQuestionGrades() { return questionGrades; }
-    public void setQuestionGrades(Map<String, Integer> questionGrades) { this.questionGrades = questionGrades; }
-    
+
     public long getSubmittedAt() { return submittedAt; }
     public void setSubmittedAt(long submittedAt) { this.submittedAt = submittedAt; }
-    
+
     public SubmissionStatus getStatus() { return status; }
     public void setStatus(SubmissionStatus status) { this.status = status; }
+
+    private static Long parseLongOrNull(String s) {
+        if (s == null) return null;
+        try {
+            return Long.parseLong(s.trim());
+        } catch (NumberFormatException ex) {
+            return null;
+        }
+    }
 }

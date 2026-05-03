@@ -1,14 +1,12 @@
 package com.university.exam.config;
 
 import org.springframework.context.annotation.Configuration;
-import org.springframework.session.data.mongo.config.annotation.web.http.EnableMongoHttpSession;
+import org.springframework.session.jdbc.config.annotation.web.http.EnableJdbcHttpSession;
 
 /**
- * Session Configuration for the Exam Management System
- * Uses MongoDB to store session data for persistence across server restarts
+ * Session Configuration backed by JDBC (MySQL) so sessions survive restarts.
  */
 @Configuration
-@EnableMongoHttpSession(maxInactiveIntervalInSeconds = 86400) // 24 hours
+@EnableJdbcHttpSession(maxInactiveIntervalInSeconds = 86400)
 public class SessionConfig {
-    // Spring Session will automatically configure MongoDB session repository
 }
