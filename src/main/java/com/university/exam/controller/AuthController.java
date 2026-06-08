@@ -35,6 +35,7 @@ public class AuthController {
 
                                         session.setAttribute("userId", userWithoutPassword.getId());
                                         session.setAttribute("username", userWithoutPassword.getUsername());
+                                        session.setAttribute("fullName", userWithoutPassword.getFullName());
                                         session.setAttribute("role", userWithoutPassword.getRole().toString());
 
                                         Map<String, Object> data = new HashMap<>();
@@ -65,6 +66,7 @@ public class AuthController {
 
                                                 session.setAttribute("userId", user.getId());
                                                 session.setAttribute("username", user.getUsername());
+                                                session.setAttribute("fullName", user.getFullName());
                                                 session.setAttribute("role", user.getRole().toString());
 
                                                 Map<String, Object> data = new HashMap<>();

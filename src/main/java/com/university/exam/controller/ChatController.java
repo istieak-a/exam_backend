@@ -97,6 +97,10 @@ public class ChatController {
                                                         ApiResponse.error("Not authenticated")));
                 }
 
+                message.setSenderId(userId);
+                message.setSenderName((String) session.getAttribute("fullName"));
+                message.setSenderRole((String) session.getAttribute("role"));
+
                 return chatService.sendGlobalMessage(message)
                                 .thenApply(savedMessage -> ResponseEntity.ok(
                                                 ApiResponse.success("Message sent", savedMessage)))
@@ -116,6 +120,10 @@ public class ChatController {
                                         ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(
                                                         ApiResponse.error("Not authenticated")));
                 }
+
+                message.setSenderId(userId);
+                message.setSenderName((String) session.getAttribute("fullName"));
+                message.setSenderRole((String) session.getAttribute("role"));
 
                 return chatService.sendPrivateMessage(message)
                                 .thenApply(savedMessage -> ResponseEntity.ok(

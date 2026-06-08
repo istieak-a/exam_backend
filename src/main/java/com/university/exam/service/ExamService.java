@@ -336,12 +336,14 @@ public class ExamService {
 
             int mcqScore = 0;
             boolean hasCQ = false;
+            boolean hasMCQ = false;
 
             for (Question question : exam.getQuestions()) {
                 String studentAnswer = answers != null ? answers.get(String.valueOf(question.getId())) : null;
                 Integer awarded = null;
 
                 if (question.getType() == Question.QuestionType.MCQ) {
+                    hasMCQ = true;
                     boolean correct = studentAnswer != null
                             && question.getCorrectAnswer() != null
                             && studentAnswer.trim().equalsIgnoreCase(question.getCorrectAnswer().trim());
@@ -359,9 +361,16 @@ public class ExamService {
 
             submission.setMcqScore(mcqScore);
             submission.setTotalScore(mcqScore);
-            submission.setStatus(hasCQ
-                    ? ExamSubmission.SubmissionStatus.GRADED_MCQ
-                    : ExamSubmission.SubmissionStatus.FULLY_GRADED);
+
+            ExamSubmission.SubmissionStatus newStatus;
+            if (!hasCQ) {
+                newStatus = ExamSubmission.SubmissionStatus.FULLY_GRADED;
+            } else if (hasMCQ) {
+                newStatus = ExamSubmission.SubmissionStatus.GRADED_MCQ;
+            } else {
+                newStatus = ExamSubmission.SubmissionStatus.SUBMITTED;
+            }
+            submission.setStatus(newStatus);
 
             return submissionRepository.save(submission);
         });
