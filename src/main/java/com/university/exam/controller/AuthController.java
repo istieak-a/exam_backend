@@ -55,10 +55,10 @@ public class AuthController {
                         @RequestBody Map<String, String> credentials,
                         HttpSession session) {
 
-                String username = credentials.get("username");
+                String email = credentials.get("email");
                 String password = credentials.get("password");
 
-                return userService.login(username, password)
+                return userService.login(email, password)
                                 .thenApply(userOpt -> {
                                         if (userOpt.isPresent()) {
                                                 User user = userOpt.get();
