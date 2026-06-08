@@ -277,8 +277,9 @@ public class ExamController {
 
         @SuppressWarnings("unchecked")
         Map<String, Integer> questionGrades = (Map<String, Integer>) gradeData.get("questionGrades");
+        String feedback = (String) gradeData.get("feedback");
 
-        return examService.gradeCQSubmission(submissionId, questionGrades, userId)
+        return examService.gradeCQSubmission(submissionId, questionGrades, feedback, userId)
                 .thenApply(submission -> ResponseEntity.ok(
                     ApiResponse.success("Submission graded successfully", submission)
                 ))

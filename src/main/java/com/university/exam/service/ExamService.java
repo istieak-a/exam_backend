@@ -403,7 +403,7 @@ public class ExamService {
 
     @Transactional
     public CompletableFuture<ExamSubmission> gradeCQSubmission(
-            Long submissionId, Map<String, Integer> questionGrades, Long teacherId) {
+            Long submissionId, Map<String, Integer> questionGrades, String feedback, Long teacherId) {
 
         return CompletableFuture.supplyAsync(() -> {
             Optional<ExamSubmission> submissionOpt = submissionRepository.findById(submissionId);
@@ -425,6 +425,9 @@ public class ExamService {
             submission.setEssayScore(cqScore);
             submission.setTotalScore(submission.getMcqScore() + cqScore);
             submission.setStatus(ExamSubmission.SubmissionStatus.FULLY_GRADED);
+            if (feedback != null && !feedback.isBlank()) {
+                submission.setTeacherFeedback(feedback.strip());
+            }
 
             return submissionRepository.save(submission);
         });

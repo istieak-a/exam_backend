@@ -63,6 +63,9 @@ public class ExamSubmission {
     @Enumerated(EnumType.STRING)
     private SubmissionStatus status;
 
+    @Column(name = "teacher_feedback", columnDefinition = "TEXT")
+    private String teacherFeedback;
+
     public enum SubmissionStatus {
         SUBMITTED, GRADED_MCQ, FULLY_GRADED
     }
@@ -199,6 +202,9 @@ public class ExamSubmission {
 
     public SubmissionStatus getStatus() { return status; }
     public void setStatus(SubmissionStatus status) { this.status = status; }
+
+    public String getTeacherFeedback() { return teacherFeedback; }
+    public void setTeacherFeedback(String teacherFeedback) { this.teacherFeedback = teacherFeedback; }
 
     private static Long parseLongOrNull(String s) {
         if (s == null) return null;
