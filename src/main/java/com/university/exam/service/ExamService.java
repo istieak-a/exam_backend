@@ -296,7 +296,8 @@ public class ExamService {
 
     @Transactional
     public CompletableFuture<ExamSubmission> submitExam(
-            Long examId, Long studentId, Map<String, String> answers) {
+            Long examId, Long studentId, Map<String, String> answers,
+            int tabSwitches, int focusLosses, boolean terminated) {
 
         return CompletableFuture.supplyAsync(() -> {
             Optional<ExamSubmission> existing =
@@ -333,6 +334,9 @@ public class ExamService {
             submission.setStudentId(studentId);
             submission.setStudentName(student.getFullName());
             submission.setSubmittedAt(now);
+            submission.setTabSwitchCount(Math.max(0, tabSwitches));
+            submission.setFocusLossCount(Math.max(0, focusLosses));
+            submission.setViolationTerminated(terminated);
 
             int mcqScore = 0;
             boolean hasCQ = false;

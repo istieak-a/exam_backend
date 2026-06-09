@@ -66,6 +66,15 @@ public class ExamSubmission {
     @Column(name = "teacher_feedback", columnDefinition = "TEXT")
     private String teacherFeedback;
 
+    @Column(name = "tab_switch_count")
+    private Integer tabSwitchCount;
+
+    @Column(name = "focus_loss_count")
+    private Integer focusLossCount;
+
+    @Column(name = "violation_terminated")
+    private Boolean violationTerminated;
+
     public enum SubmissionStatus {
         SUBMITTED, GRADED_MCQ, FULLY_GRADED
     }
@@ -205,6 +214,15 @@ public class ExamSubmission {
 
     public String getTeacherFeedback() { return teacherFeedback; }
     public void setTeacherFeedback(String teacherFeedback) { this.teacherFeedback = teacherFeedback; }
+
+    public int getTabSwitchCount() { return tabSwitchCount != null ? tabSwitchCount : 0; }
+    public void setTabSwitchCount(int tabSwitchCount) { this.tabSwitchCount = tabSwitchCount; }
+
+    public int getFocusLossCount() { return focusLossCount != null ? focusLossCount : 0; }
+    public void setFocusLossCount(int focusLossCount) { this.focusLossCount = focusLossCount; }
+
+    public boolean isViolationTerminated() { return Boolean.TRUE.equals(violationTerminated); }
+    public void setViolationTerminated(boolean violationTerminated) { this.violationTerminated = violationTerminated; }
 
     private static Long parseLongOrNull(String s) {
         if (s == null) return null;

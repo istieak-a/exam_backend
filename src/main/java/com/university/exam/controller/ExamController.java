@@ -235,7 +235,7 @@ public class ExamController {
     @PostMapping("/{examId}/submit")
     public CompletableFuture<ResponseEntity<ApiResponse<ExamSubmission>>> submitExam(
             @PathVariable Long examId,
-            @RequestBody Map<String, String> answers,
+            @RequestBody Map<String, Object> body,
             HttpSession session) {
 
         Long userId = (Long) session.getAttribute("userId");
@@ -249,7 +249,24 @@ public class ExamController {
             );
         }
 
-        return examService.submitExam(examId, userId, answers)
+        // Extract answers map from structured body
+        Map<String, String> answers = new HashMap<>();
+        Object answersObj = body.get("answers");
+        if (answersObj instanceof Map<?, ?> rawMap) {
+            for (Map.Entry<?, ?> entry : rawMap.entrySet()) {
+                if (entry.getKey() != null && entry.getValue() != null) {
+                    answers.put(String.valueOf(entry.getKey()), String.valueOf(entry.getValue()));
+                }
+            }
+        }
+
+        int tabSwitches = body.containsKey("tabSwitches")
+                ? ((Number) body.get("tabSwitches")).intValue() : 0;
+        int focusLosses = body.containsKey("focusLosses")
+                ? ((Number) body.get("focusLosses")).intValue() : 0;
+        boolean terminated = Boolean.TRUE.equals(body.get("terminated"));
+
+        return examService.submitExam(examId, userId, answers, tabSwitches, focusLosses, terminated)
                 .thenApply(submission -> ResponseEntity.ok(
                     ApiResponse.success("Exam submitted successfully", submission)
                 ))
