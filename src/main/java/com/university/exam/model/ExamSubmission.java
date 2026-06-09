@@ -75,6 +75,15 @@ public class ExamSubmission {
     @Column(name = "violation_terminated")
     private Boolean violationTerminated;
 
+    @Column(name = "camera_violation_count")
+    private Integer cameraViolationCount;
+
+    @Column(name = "camera_terminated")
+    private Boolean cameraTerminated;
+
+    @Column(name = "proctoring_video_path")
+    private String proctoringVideoPath;
+
     public enum SubmissionStatus {
         SUBMITTED, GRADED_MCQ, FULLY_GRADED
     }
@@ -223,6 +232,20 @@ public class ExamSubmission {
 
     public boolean isViolationTerminated() { return Boolean.TRUE.equals(violationTerminated); }
     public void setViolationTerminated(boolean violationTerminated) { this.violationTerminated = violationTerminated; }
+
+    public int getCameraViolationCount() { return cameraViolationCount != null ? cameraViolationCount : 0; }
+    public void setCameraViolationCount(int cameraViolationCount) { this.cameraViolationCount = cameraViolationCount; }
+
+    public boolean isCameraTerminated() { return Boolean.TRUE.equals(cameraTerminated); }
+    public void setCameraTerminated(boolean cameraTerminated) { this.cameraTerminated = cameraTerminated; }
+
+    public String getProctoringVideoPath() { return proctoringVideoPath; }
+    public void setProctoringVideoPath(String proctoringVideoPath) { this.proctoringVideoPath = proctoringVideoPath; }
+
+    @Transient
+    public boolean isProctoringFlagged() {
+        return isCameraTerminated() || getCameraViolationCount() > 0;
+    }
 
     private static Long parseLongOrNull(String s) {
         if (s == null) return null;

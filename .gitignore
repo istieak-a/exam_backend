@@ -35,3 +35,5 @@ build/
 ### Data files ###
 data/
 *.txt
+
+/proctoring-videos

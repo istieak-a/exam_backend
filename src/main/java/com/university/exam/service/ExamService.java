@@ -297,7 +297,8 @@ public class ExamService {
     @Transactional
     public CompletableFuture<ExamSubmission> submitExam(
             Long examId, Long studentId, Map<String, String> answers,
-            int tabSwitches, int focusLosses, boolean terminated) {
+            int tabSwitches, int focusLosses, boolean terminated,
+            int cameraViolations, boolean cameraTerminated) {
 
         return CompletableFuture.supplyAsync(() -> {
             Optional<ExamSubmission> existing =
@@ -337,6 +338,8 @@ public class ExamService {
             submission.setTabSwitchCount(Math.max(0, tabSwitches));
             submission.setFocusLossCount(Math.max(0, focusLosses));
             submission.setViolationTerminated(terminated);
+            submission.setCameraViolationCount(Math.max(0, cameraViolations));
+            submission.setCameraTerminated(cameraTerminated);
 
             int mcqScore = 0;
             boolean hasCQ = false;
@@ -480,5 +483,19 @@ public class ExamService {
         }
 
         return submissionRepository.findByExamIdIn(examIds, pageable);
+    }
+
+    @Transactional
+    public void setProctoringVideoPath(Long submissionId, String path) {
+        submissionRepository.findById(submissionId).ifPresent(sub -> {
+            sub.setProctoringVideoPath(path);
+            submissionRepository.save(sub);
+        });
+    }
+
+    public boolean isTeacherOwnerOfSubmission(ExamSubmission submission, Long teacherId) {
+        return examRepository.findById(submission.getExamId())
+                .map(exam -> Objects.equals(exam.getTeacherId(), teacherId))
+                .orElse(false);
     }
 }

@@ -4,16 +4,25 @@ import com.university.exam.model.ApiResponse;
 import com.university.exam.model.Exam;
 import com.university.exam.model.ExamSubmission;
 import com.university.exam.service.ExamService;
+import com.university.exam.service.FileStorageService;
 import com.university.exam.service.ValidationException;
+import jakarta.annotation.PostConstruct;
 import jakarta.servlet.http.HttpSession;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.UrlResource;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -24,9 +33,16 @@ import java.util.concurrent.CompletableFuture;
 public class ExamController {
 
     private final ExamService examService;
+    private final FileStorageService fileStorageService;
 
-    public ExamController(ExamService examService) {
+    public ExamController(ExamService examService, FileStorageService fileStorageService) {
         this.examService = examService;
+        this.fileStorageService = fileStorageService;
+    }
+
+    @PostConstruct
+    public void init() {
+        fileStorageService.init();
     }
 
     @ExceptionHandler(ValidationException.class)
@@ -265,8 +281,12 @@ public class ExamController {
         int focusLosses = body.containsKey("focusLosses")
                 ? ((Number) body.get("focusLosses")).intValue() : 0;
         boolean terminated = Boolean.TRUE.equals(body.get("terminated"));
+        int cameraViolations = body.containsKey("cameraViolations")
+                ? ((Number) body.get("cameraViolations")).intValue() : 0;
+        boolean cameraTerminated = Boolean.TRUE.equals(body.get("cameraTerminated"));
 
-        return examService.submitExam(examId, userId, answers, tabSwitches, focusLosses, terminated)
+        return examService.submitExam(examId, userId, answers, tabSwitches, focusLosses, terminated,
+                cameraViolations, cameraTerminated)
                 .thenApply(submission -> ResponseEntity.ok(
                     ApiResponse.success("Exam submitted successfully", submission)
                 ))
@@ -394,6 +414,82 @@ public class ExamController {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(
                 ApiResponse.error("Submission not found")
             );
+        }
+    }
+
+    @PostMapping("/submissions/{submissionId}/upload-video")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> uploadProctoringVideo(
+            @PathVariable Long submissionId,
+            @RequestParam("video") MultipartFile video,
+            HttpSession session) {
+
+        Long userId = (Long) session.getAttribute("userId");
+        String role = (String) session.getAttribute("role");
+
+        if (userId == null || !"STUDENT".equals(role)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(
+                ApiResponse.error("Access denied: Students only")
+            );
+        }
+
+        Optional<ExamSubmission> subOpt = examService.getSubmission(submissionId);
+        if (subOpt.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(
+                ApiResponse.error("Submission not found")
+            );
+        }
+
+        if (!subOpt.get().getStudentId().equals(userId)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(
+                ApiResponse.error("You can only upload your own recordings")
+            );
+        }
+
+        try {
+            String filename = fileStorageService.store(submissionId, video);
+            examService.setProctoringVideoPath(submissionId, filename);
+            Map<String, Object> result = Map.of("videoUploaded", true, "filename", filename);
+            return ResponseEntity.ok(ApiResponse.success("Video uploaded", result));
+        } catch (RuntimeException ex) {
+            return ResponseEntity.badRequest().body(ApiResponse.error(ex.getMessage()));
+        }
+    }
+
+    @GetMapping("/submissions/{submissionId}/proctoring-video")
+    public ResponseEntity<Resource> getProctoringVideo(
+            @PathVariable Long submissionId,
+            HttpSession session) {
+
+        Long userId = (Long) session.getAttribute("userId");
+        String role = (String) session.getAttribute("role");
+
+        if (userId == null || !"TEACHER".equals(role)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+
+        Optional<ExamSubmission> subOpt = examService.getSubmission(submissionId);
+        if (subOpt.isEmpty() || subOpt.get().getProctoringVideoPath() == null) {
+            return ResponseEntity.notFound().build();
+        }
+
+        ExamSubmission submission = subOpt.get();
+        if (!examService.isTeacherOwnerOfSubmission(submission, userId)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+
+        try {
+            Path videoPath = fileStorageService.load(submission.getProctoringVideoPath());
+            if (videoPath == null || !Files.exists(videoPath)) {
+                return ResponseEntity.notFound().build();
+            }
+            Resource resource = new UrlResource(videoPath.toUri());
+            return ResponseEntity.ok()
+                    .header(HttpHeaders.CONTENT_DISPOSITION,
+                            "inline; filename=\"" + videoPath.getFileName() + "\"")
+                    .contentType(MediaType.parseMediaType("video/webm"))
+                    .body(resource);
+        } catch (Exception ex) {
+            return ResponseEntity.internalServerError().build();
         }
     }
 }
