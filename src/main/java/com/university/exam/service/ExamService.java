@@ -313,11 +313,15 @@ public class ExamService {
             Exam exam = examOpt.get();
 
             long now = System.currentTimeMillis();
-            if (exam.getStartDateTime() != null && now < exam.getStartDateTime()) {
-                throw new RuntimeException("Exam has not started yet");
-            }
-            if (exam.getEndDateTime() != null && now > exam.getEndDateTime()) {
-                throw new RuntimeException("Exam has ended");
+            // ACTIVE status is the authoritative signal that the exam is running;
+            // skip raw timestamp checks so auto-submit (e.g. camera violations) always succeeds.
+            if (exam.getStatus() != Exam.ExamStatus.ACTIVE) {
+                if (exam.getStartDateTime() != null && now < exam.getStartDateTime()) {
+                    throw new RuntimeException("Exam has not started yet");
+                }
+                if (exam.getEndDateTime() != null && now > exam.getEndDateTime()) {
+                    throw new RuntimeException("Exam has ended");
+                }
             }
 
             Optional<User> studentOpt = userRepository.findById(studentId);
